@@ -22,7 +22,6 @@ __all__ = [
     "ItemSlotProvider",
     "ClassNameProvider",
     "FunctionSignatureProvider",
-    "FunctionSignatureArgProvider",
     "ValueProvider",
     "FormatStringProvider",
 ]
@@ -61,15 +60,6 @@ class FunctionSignatureProvider(BaseFeatureProvider[AstFunctionSignature]):
                 tokens.append((first, "macro", []))
 
         return tokens
-
-
-class FunctionSignatureArgProvider(BaseFeatureProvider[AstFunctionSignatureArgument]):
-    @classmethod
-    def semantics(cls, params):
-        if params.node.type_annotation:
-            return [(params.node.type_annotation, "class", [])]
-
-        return None
 
 
 class ValueProvider(BaseFeatureProvider[AstValue]):
