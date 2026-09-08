@@ -5,6 +5,7 @@ from typing import get_args
 from aegis_core.ast.features import AegisFeatureProviders
 from aegis_core.ast.features.provider import SemanticsParams
 from aegis_core.ast.helpers import offset_location
+from aegis_core.ast.metadata import ResourceLocationMetadata, retrieve_metadata
 from beet import Context
 from beet.core.utils import required_field
 from bolt import (
@@ -71,6 +72,7 @@ class SemanticTokenCollector(Reducer):
     nodes: list[tuple[AstNode, int, int]] = field(default_factory=list)
     ctx: Context = required_field()
     resource_location: str = required_field()
+    source: str = required_field()
 
     @rule(AstCommand)
     def command(self, node: AstCommand):
@@ -160,6 +162,16 @@ class SemanticTokenCollector(Reducer):
     def node(self, node: AstNode):
         provider = self.ctx.inject(AegisFeatureProviders).retrieve(node)
         try:
+            if isinstance(node, AstResourceLocation):
+                metadata = retrieve_metadata(
+                    self.resource_location, node, ResourceLocationMetadata
+                )
+                if self.source[node.location.pos : node.end_location.pos] not in (
+                    node.get_value(),
+                    metadata.unresolved_path if metadata else None,
+                ):
+                    return
+            
             tokens = provider.semantics(
                 SemanticsParams(self.ctx, node, self.resource_location)
             )
@@ -188,16 +200,23 @@ class SemanticTokenCollector(Reducer):
 
         tokens: list[tuple[int, ...]] = []
 
-        self.nodes = sorted(self.nodes, key=lambda n: n[0].location.pos)
-        for i in range(len(self.nodes)):
-            prev_node = None
-            if i > 0:
-                prev_node = self.nodes[i - 1][0]
+        self.nodes = list(
+            {
+                (n.location.pos, n.end_location.pos): (n, t, m)
+                for n, t, m in self.nodes
+            }.values()
+        )
 
-            node, type, modifier = self.nodes[i]
+        self.nodes.sort(key=lambda n: (n[0].location.lineno, n[0].location.colno))
+
+        prev_node = None
+        for node, type, modifier in self.nodes:
+            if node.end_location.pos - node.location.pos <= 0:
+                continue
+
             tokens.append(node_to_token(node, type, modifier, prev_node))
+            prev_node = node
 
-        # logging.debug(tokens)
         return list(sum(tokens, ()))
 
 
@@ -212,7 +231,9 @@ async def semantic_tokens(ls: AegisServer, params: lsp.SemanticTokensParams):
 
                 data = (
                     SemanticTokenCollector(
-                        ctx=ctx, resource_location=compiled_doc.resource_location
+                        ctx=ctx,
+                        resource_location=compiled_doc.resource_location,
+                        source=text_doc.source,
                     ).walk(ast)
                     if ast
                     else []
