@@ -317,8 +317,10 @@ class AegisServer(LanguageServer):
             return
 
         lock.acquire()
-        yield context
-        lock.release()
+        try:
+            yield context
+        finally:
+            lock.release()
 
     def _kill(self):
         self._alive = False
