@@ -40,6 +40,7 @@ TokenType = Union[
     Literal["clsParameter"],
     Literal["magicFunction"],
     Literal["builtinConstant"],
+    Literal["module"],
 ]
 
 IMPLICIT_PARAMETERS: dict[str, TokenType] = {

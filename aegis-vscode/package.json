@@ -125,6 +125,11 @@
             {
                 "id": "builtinConstant",
                 "description": "True, False or None."
+            },
+            {
+                "id": "module",
+                "superType": "namespace",
+                "description": "An imported module."
             }
         ],
         "semanticTokenScopes": [
@@ -142,6 +147,10 @@
                     "magicFunction": [
                         "support.function.magic.python",
                         "support.function"
+                    ],
+                    "module": [
+                        "entity.name.namespace",
+                        "entity.name.type.class"
                     ],
                     "builtinConstant": [
                         "constant.language.python",

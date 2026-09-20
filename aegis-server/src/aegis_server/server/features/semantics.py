@@ -80,6 +80,7 @@ def node_to_token(
 class SemanticTokenCollector(Reducer):
     nodes: list[tuple[AstNode, int, int]] = field(default_factory=list)
     overrides: list[tuple[AstNode, int, int]] = field(default_factory=list)
+    imported_modules: set[str] = field(default_factory=set)
     ctx: Context = required_field()
     resource_location: str = required_field()
     source: str = required_field()
@@ -94,18 +95,20 @@ class SemanticTokenCollector(Reducer):
                     self.nodes.append(
                         (
                             m,
-                            TOKEN_TYPES["class" if m.namespace == None else "function"],
+                            TOKEN_TYPES["module"],
                             0,
                         )
                     )
+                    self.imported_modules.add(m.path.partition(".")[0])
             case "import:module:as:alias":
                 module: AstResourceLocation = node.arguments[0]  # type: ignore
                 item: AstImportedItem = node.arguments[1]  # type: ignore
 
-                type = TOKEN_TYPES["class" if module.namespace == None else "function"]
+                type = TOKEN_TYPES["module"]
 
                 self.nodes.append((module, type, 0))
                 self.nodes.append((item, type, 0))
+                self.imported_modules.add(item.name)
 
         end_location = node.end_location
 
@@ -151,7 +154,7 @@ class SemanticTokenCollector(Reducer):
         self.nodes.append(
             (
                 location,
-                TOKEN_TYPES["class" if location.namespace == None else "function"],
+                TOKEN_TYPES["module"],
                 0,
             )
         )
@@ -193,6 +196,11 @@ class SemanticTokenCollector(Reducer):
     def call(self, node: AstCall):
         self.override_callable(node.value)
 
+    @rule(AstIdentifier)
+    def identifier(self, node: AstIdentifier):
+        if node.value in self.imported_modules:
+            self.overrides.append((node, TOKEN_TYPES["module"], 0))
+
     @rule(AstNode)
     def node(self, node: AstNode):
         provider = self.ctx.inject(AegisFeatureProviders).retrieve(node)
@@ -232,6 +240,7 @@ class SemanticTokenCollector(Reducer):
     def walk(self, root: AstNode):
         self.nodes = []
         self.overrides = []
+        self.imported_modules = set()
         self.__call__(root)
         self.nodes.extend(self.overrides)
 
