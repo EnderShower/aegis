@@ -148,6 +148,10 @@
                         "support.function.magic.python",
                         "support.function"
                     ],
+                    "decorator": [
+                        "entity.name.function.decorator.python",
+                        "entity.name.function"
+                    ],
                     "module": [
                         "entity.name.namespace",
                         "entity.name.type.class"

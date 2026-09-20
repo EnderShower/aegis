@@ -11,6 +11,7 @@ from beet.core.utils import required_field
 from bolt import (
     AstAttribute,
     AstCall,
+    AstDecorator,
     AstFromImport,
     AstIdentifier,
     AstImportedItem,
@@ -195,6 +196,33 @@ class SemanticTokenCollector(Reducer):
     @rule(AstCall)
     def call(self, node: AstCall):
         self.override_callable(node.value)
+
+    @rule(AstDecorator)
+    def decorator(self, node: AstDecorator):
+        self.nodes.append(
+            (
+                AstNode(node.location, offset_location(node.location, 1)),
+                TOKEN_TYPES["decorator"],
+                0,
+            )
+        )
+
+        target = node.expression
+        if isinstance(target, AstCall):
+            target = target.value
+
+        while isinstance(target, AstAttribute):
+            location = offset_location(target.end_location, -len(target.name))
+            self.overrides.append(
+                (AstNode(location, target.end_location), TOKEN_TYPES["decorator"], 0)
+            )
+            target = target.value
+
+        if (
+            isinstance(target, AstIdentifier)
+            and target.value not in self.imported_modules
+        ):
+            self.overrides.append((target, TOKEN_TYPES["decorator"], 0))
 
     @rule(AstIdentifier)
     def identifier(self, node: AstIdentifier):
