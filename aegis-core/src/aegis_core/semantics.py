@@ -35,4 +35,13 @@ TokenType = Union[
     Literal["parameter"],
     Literal["property"],
     Literal["label"],
+    Literal["selfParameter"],
+    Literal["clsParameter"],
+    Literal["magicFunction"],
+    Literal["builtinConstant"],
 ]
+
+IMPLICIT_PARAMETERS: dict[str, TokenType] = {
+    "self": "selfParameter",
+    "cls": "clsParameter",
+}

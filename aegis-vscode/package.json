@@ -105,6 +105,58 @@
                     }
                 }
             }
+        ],
+        "semanticTokenTypes": [
+            {
+                "id": "selfParameter",
+                "superType": "parameter",
+                "description": "The self parameter of a method."
+            },
+            {
+                "id": "clsParameter",
+                "superType": "parameter",
+                "description": "The cls parameter of a class method."
+            },
+            {
+                "id": "magicFunction",
+                "superType": "function",
+                "description": "A dunder method."
+            },
+            {
+                "id": "builtinConstant",
+                "description": "True, False or None."
+            }
+        ],
+        "semanticTokenScopes": [
+            {
+                "language": "mcfunction",
+                "scopes": {
+                    "selfParameter": [
+                        "variable.language.special.self.python",
+                        "variable.language"
+                    ],
+                    "clsParameter": [
+                        "variable.language.special.cls.python",
+                        "variable.language"
+                    ],
+                    "magicFunction": [
+                        "support.function.magic.python",
+                        "support.function"
+                    ],
+                    "builtinConstant": [
+                        "constant.language.python",
+                        "constant.language"
+                    ],
+                    "number": [
+                        "constant.numeric.python",
+                        "constant.numeric"
+                    ],
+                    "string": [
+                        "string.quoted.single.python",
+                        "string.quoted"
+                    ]
+                }
+            }
         ]
     },
     "main": "./dist/extension",
