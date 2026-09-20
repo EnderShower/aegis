@@ -1,4 +1,4 @@
-import logging, traceback
+import builtins, logging, traceback
 from dataclasses import dataclass, field
 from typing import get_args
 
@@ -9,7 +9,10 @@ from aegis_core.ast.metadata import ResourceLocationMetadata, retrieve_metadata
 from beet import Context
 from beet.core.utils import required_field
 from bolt import (
+    AstAttribute,
+    AstCall,
     AstFromImport,
+    AstIdentifier,
     AstImportedItem,
     AstPrelude,
 )
@@ -24,10 +27,16 @@ from mecha import (
 )
 from tokenstream import SourceLocation
 
-from aegis_core.semantics import TokenModifier, TokenType
+from aegis_core.semantics import PASCAL_CASE, TokenModifier, TokenType
 
 from ...server import AegisServer
 from ..features.validate import get_compilation_data
+
+BUILTIN_CLASSES = {
+    name
+    for name, value in vars(builtins).items()
+    if isinstance(value, type) and not name.startswith("_")
+}
 
 TOKEN_TYPES: dict[TokenType, int] = {
     get_args(literal)[0]: i for (i, literal) in enumerate(get_args(TokenType))
@@ -70,6 +79,7 @@ def node_to_token(
 @dataclass
 class SemanticTokenCollector(Reducer):
     nodes: list[tuple[AstNode, int, int]] = field(default_factory=list)
+    overrides: list[tuple[AstNode, int, int]] = field(default_factory=list)
     ctx: Context = required_field()
     resource_location: str = required_field()
     source: str = required_field()
@@ -158,6 +168,31 @@ class SemanticTokenCollector(Reducer):
             )
         )
 
+    def override_callable(self, target: AstNode):
+        if isinstance(target, AstIdentifier):
+            name, location = target.value, target.location
+            builtin = name in BUILTIN_CLASSES
+        elif isinstance(target, AstAttribute):
+            name = target.name
+            location = offset_location(target.end_location, -len(name))
+            builtin = False
+        else:
+            return
+
+        self.overrides.append(
+            (
+                AstNode(location, offset_location(location, len(name))),
+                TOKEN_TYPES[
+                    "class" if builtin or PASCAL_CASE.match(name) else "function"
+                ],
+                0,
+            )
+        )
+
+    @rule(AstCall)
+    def call(self, node: AstCall):
+        self.override_callable(node.value)
+
     @rule(AstNode)
     def node(self, node: AstNode):
         provider = self.ctx.inject(AegisFeatureProviders).retrieve(node)
@@ -196,7 +231,9 @@ class SemanticTokenCollector(Reducer):
 
     def walk(self, root: AstNode):
         self.nodes = []
+        self.overrides = []
         self.__call__(root)
+        self.nodes.extend(self.overrides)
 
         tokens: list[tuple[int, ...]] = []
 
