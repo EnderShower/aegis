@@ -68,7 +68,7 @@ class AegisServer(LanguageServer):
     _instances: dict[Path, tuple[Lock, LanguageServerContext]] = dict()
     _sites: list[str] = []
     _index_thread: Thread
-    _unmounted: set[Path]
+    _triggered_rebuild: set[Path]
     _alive: bool = True
 
     def set_sites(self, sites: list[str]):
@@ -77,7 +77,7 @@ class AegisServer(LanguageServer):
     def __init__(self, *args):
         super().__init__(*args)
         self._instances = {}
-        self._unmounted = set()
+        self._triggered_rebuild = set()
         self._index_thread = Thread(
             target=lambda self, parent: self.scan_functions(parent),
             args=[self, threading.current_thread()],
@@ -287,9 +287,9 @@ class AegisServer(LanguageServer):
             if (
                 found is None
                 and doc_path.suffix in SUPPORTED_EXTENSIONS
-                and doc_path not in self._unmounted
+                and doc_path not in self._triggered_rebuild
             ):
-                self._unmounted.add(doc_path)
+                self._triggered_rebuild.add(doc_path)
                 config_path = parents[-1]
 
                 try:
