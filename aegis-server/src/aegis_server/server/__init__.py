@@ -67,9 +67,8 @@ def get_parent_context(ctx: LanguageServerContext, file_path: Path) -> LanguageS
         # The other option which may be better is to monkey patch mount directly
         temp = DataPack().configure(ctx.data)
         for prefix, origin in ctx.mounts:
-            relative_path = file_path.is_relative_to(origin)
-            if relative_path:
-                temp.mount(f"{prefix}/{relative_path.as_posix()}", file_path)
+            if file_path.is_relative_to(origin):
+                temp.mount(f"{prefix}/{file_path.relative_to(origin).as_posix()}", file_path)
         for [location, file] in temp.all():
             if not (isinstance(file, Function) or isinstance(file, Module)):
                 continue
