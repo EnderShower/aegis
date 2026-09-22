@@ -294,7 +294,7 @@ class AegisServer(LanguageServer):
 
                 try:
                     rebuilt = self.create_instance(
-                        load_config(config_path), config_path
+                        load_config(config_path), locate_config(config_path)
                     )
                 except Exception as exc:
                     logging.error(f"Failed to rebuild {config_path}\n{exc}")
