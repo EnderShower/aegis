@@ -16,6 +16,7 @@ from urllib.request import url2pathname
 
 from beet import (
     Context,
+    DataPack,
     Function,
     PluginError,
     PluginImportError,
@@ -49,17 +50,38 @@ logging.basicConfig(
 SUPPORTED_EXTENSIONS = [Function.extension, Module.extension]
 
 def get_parent_context(ctx: LanguageServerContext, file_path: Path) -> LanguageServerContext | None:
-    """Find the context the given file is mounted in."""
+    """Try to mount a given file path to the context. Context if the file was successfully mounted"""
 
     if file_path.suffix not in SUPPORTED_EXTENSIONS:
         return None
 
-    if ctx.path_to_resource.get(file_path) is not None:
+    if file_path in ctx.path_to_resource:
         return ctx
-
+    
     for child in ctx.children:
         if parent := get_parent_context(child, file_path):
             return parent
+
+    try:
+        # Mounting is done into a temp datapack to make it easier to get the file path
+        # The other option which may be better is to monkey patch mount directly
+        temp = DataPack().configure(ctx.data)
+        for prefix, origin in ctx.mounts:
+            relative_path = file_path.is_relative_to(origin)
+            if relative_path:
+                temp.mount(f"{prefix}/{relative_path.as_posix()}", file_path)
+        for [location, file] in temp.all():
+            if not (isinstance(file, Function) or isinstance(file, Module)):
+                continue
+
+            mount_path = Path(file.ensure_source_path())
+            ctx.path_to_resource[mount_path] = (location, file)
+            ctx.data[type(file)][location] = file
+
+            logging.debug(f"Mounted {file_path} to {location}")
+            return ctx
+    except Exception as exc:
+        logging.error(f"Failed to mount {file_path}, reloading datapack,\n{exc}")
 
     return None
 
